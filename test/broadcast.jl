@@ -47,15 +47,27 @@ f(x::Real, y::Real, z::Real) = x * y * z
         ((C3, Z3), (A1, A2, A3), (V1, V2, V3), (Q3,)),
 )
 
-    # Base.broadcast!(f, B::DataValueArray, As::DataValueArray...)
+    # Base.broadcast!(f, B::DataValueArray, As::DataValueArray...)    
     broadcast!(f, dests[1], arrays...)
-    # TODO Fix broadcast!(i->f.(i), dests[2], datavaluearrays...)
-    # TODO Fix @test isequal(dests[2], DataValueArray(dests[1], mask...))
+    if length(datavaluearrays)==2
+        broadcast!((i,j) -> f.(i,j), dests[2], datavaluearrays...)
+    elseif length(datavaluearrays)==3
+        broadcast!((i,j,k) -> f.(i,j,k), dests[2], datavaluearrays...)
+    else
+        error()
+    end    
+    @test isequal(dests[2], DataValueArray(dests[1], mask...))
 
     # Base.broadcast(f, As::DataValueArray...)
     D = broadcast(f, arrays...)
-    # TODO Fix X = broadcast(f, datavaluearrays...)
-    # TODO Fix @test isequal(X, DataValueArray(D, mask...))
+    if length(datavaluearrays)==2
+        X = broadcast((i,j)->f.(i,j), datavaluearrays...)
+    elseif length(datavaluearrays)==3
+        X = broadcast((i,j,k)->f.(i,j,k), datavaluearrays...)
+    else
+        error()
+    end
+    @test isequal(X, DataValueArray(D, mask...))
 end
 
 # Base.broadcast!(f, X::DataValueArray)
@@ -65,7 +77,7 @@ for (array, datavaluearray, mask) in
 )
     broadcast!(f, array)
     broadcast!(f, datavaluearray)
-    # TODO Fix @test isequal(DataValueArray, DataValueArray(array, mask...))
+    @test isequal(datavaluearray, DataValueArray(array, mask...))
 end
 
 # test broadcasted arithmetic operators

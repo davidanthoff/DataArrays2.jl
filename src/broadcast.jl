@@ -1,31 +1,42 @@
 using Compat
 
-using Base.Broadcast: check_broadcast_indices, broadcast_indices
+Base.Broadcast._containertype(::Type{<:DataValueArray}) = DataValueArray
+Base.Broadcast.promote_containertype(::Type{DataValueArray}, ::Type{DataValueArray}) = DataValueArray
+Base.Broadcast.promote_containertype(::Type{AbstractArray}, ::Type{DataValueArray}) = DataValueArray
+Base.Broadcast.promote_containertype(::Type{DataValueArray}, ::Type{AbstractArray}) = DataValueArray
+Base.Broadcast.promote_containertype(::Type{DataValueArray}, _) = error()
+Base.Broadcast.promote_containertype(_, ::Type{DataValueArray}) = error()
 
-Base.@pure nullable_eltypestuple(a) = Tuple{eltype(eltype(a))}
-Base.@pure nullable_eltypestuple(T::Type) = Tuple{Type{eltype(T)}}
-Base.@pure nullable_eltypestuple(a, b...) =
-    Tuple{nullable_eltypestuple(a).types..., nullable_eltypestuple(b...).types...}
+Base.Broadcast.broadcast_indices(::Type{DataValueArray}, A::Ref) = ()
+Base.Broadcast.broadcast_indices(::Type{DataValueArray}, A) = indices(A)
 
-Base.@pure function nullable_broadcast_eltype(f, As...)
-    T = Core.Inference.return_type(f, nullable_eltypestuple(As...))
-    T === Union{} ? Any : T
+# broadcast methods that dispatch on the type found by inference
+function broadcast_t(f, ::Type{Any}, shape, iter, As...)
+    nargs = length(As)
+    keeps, Idefaults = Base.Broadcast.map_newindexer(shape, As)
+    st = start(iter)
+    I, st = next(iter, st)
+    val = f([ Base.Broadcast._broadcast_getindex(As[i], Base.Broadcast.newindex(I, keeps[i], Idefaults[i])) for i=1:nargs ]...)
+    B = similar(DataValueArray{typeof(val)}, shape)
+    B[I] = val
+    return Base.Broadcast._broadcast!(f, B, keeps, Idefaults, As, Val{nargs}, iter, st, 1)
+end
+@inline function broadcast_t(f, T, shape, iter, A, Bs::Vararg{Any,N}) where N
+    C = similar(DataValueArray{T}, shape)
+    keeps, Idefaults = Base.Broadcast.map_newindexer(shape, A, Bs)
+    Base.Broadcast._broadcast!(f, C, keeps, Idefaults, A, Bs, Val{N}, iter)
+    return C
 end
 
-invoke_broadcast!{F, N}(f::F, dest, As::Vararg{DataValueArray, N}) =
-    invoke(broadcast!, Tuple{F, AbstractArray, Vararg{AbstractArray, N}}, f, dest, As...)
-
-function Base.broadcast{F}(f::F, As::DataValueArray...)
-    T = nullable_broadcast_eltype(f, As...)
-    dest = similar(DataValueArray{T}, broadcast_indices(As...))
-    invoke_broadcast!(f, dest, As...)
-end
-
-function Base.broadcast!{F}(f::F, dest::DataValueArray, As::DataValueArray...)
-    invoke_broadcast!(f, dest, As...)
-end
-
-# To fix ambiguity
-function Base.broadcast!{F}(f::F, dest::DataValueArray)
-    invoke_broadcast!(f, dest)
+function Base.Broadcast.broadcast_c(f, ::Type{DataValueArray}, A, Bs...)
+    T = Base.Broadcast._broadcast_eltype(f, A, Bs...)
+    shape = Base.Broadcast.broadcast_indices(A, Bs...)
+    iter = CartesianRange(shape)
+    if isleaftype(T)
+        return broadcast_t(f, T, shape, iter, A, Bs...)
+    end
+    if isempty(iter)
+        return similar(DataValueArray{T}, shape)
+    end
+    return broadcast_t(f, Any, shape, iter, A, Bs...)
 end
