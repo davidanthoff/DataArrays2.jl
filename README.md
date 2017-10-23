@@ -1,5 +1,7 @@
 # DataValueArrays.jl
 
+THIS PACKAGE IS NO LONGER BEING MAINTAINED. ALL THE FUNCTIONALITY FROM THIS PACKAGE HAS BEEN MOVED INTO https://github.com/davidanthoff/DataValues.jl.
+
 [![Build Status](https://travis-ci.org/davidanthoff/DataValueArrays.jl.svg?branch=master)](https://travis-ci.org/davidanthoff/DataValueArrays.jl)
 [![Build status](https://ci.appveyor.com/api/projects/status/hspknlh93ma48ixr/branch/master?svg=true)](https://ci.appveyor.com/project/davidanthoff/datavaluearrays-jl/branch/master)
 [![DataValueArrays](http://pkg.julialang.org/badges/DataValueArrays_0.6.svg)](http://pkg.julialang.org/?pkg=DataValueArrays)
